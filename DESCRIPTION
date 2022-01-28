@@ -1,0 +1,10 @@
+Package: Keris
+Type: Package
+Title: Keris: Kernel of integrated single cells
+Version: 0.1.0
+Authors@R: c(person("Elior", "Rahmani", role=c("aut", "cre"), email = "elior.rahmani@gmail.com"))
+Description: A framework for identifying systematic variation at the single-cell level by leveraging low-resolution population-level data.
+License: BSD 3-Clause "New" or "Revised" License
+Encoding: UTF-8
+LazyData: true
+Depends: R (>= 4.0.0), futile.logger, pracma, mgcv, parallel, matrixcalc, matrixStats, pbapply
