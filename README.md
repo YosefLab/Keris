@@ -1,6 +1,7 @@
 # Keris
 
-A framework for identifying systematic variation at the single-cell level by leveraging low-resolution population-level data.
+A framework for identifying systematic variation at the single-cell level by leveraging low-resolution population-level data. A preprint is available from the 
+<a href="https://www.biorxiv.org/content/10.1101/2022.01.27.478115v1biorxiv" target="_blank">biorxiv</a>.
 
 ---
 
