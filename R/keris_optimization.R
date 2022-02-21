@@ -16,7 +16,7 @@ keris.fit_means <- function(X, W, W_squared, C2, C1_, y, W.inter.0, W.inter.y, v
   colnames(betas_hat) <- colnames(C2)
   gammas_hat <- matrix(0, nrow=m, ncol=(p1+!is.null(y))*k)
   rownames(gammas_hat) <- colnames(X)
-  colnames(gammas_hat) <- colnames(C1_)
+  colnames(gammas_hat) <- c(colnames(C1_), colnames(W.inter.y))
   X_means_hat <- NULL
 
   if (penalty){
@@ -101,9 +101,7 @@ keris.fit_means <- function(X, W, W_squared, C2, C1_, y, W.inter.0, W.inter.y, v
 }
 
 
-
-## TODO add logs
-# Finds the best critical values in terms of the most number of hits while controlling for fdr; considered only a subset of the extreme values in S.perm (controlled by window_size).
+# Finds the best critical values (left and right, for a two-sided test) in terms of the most number of hits while controlling for fdr; considered only a subset of the extreme values in S.perm (controlled by window_size).
 get_critical_values <- function(S, S.perm, fdr, window_size = 10){
   flog.debug(sprintf("Running get_critical_values with window_size=%f", window_size))
   m <- length(S)
@@ -113,7 +111,7 @@ get_critical_values <- function(S, S.perm, fdr, window_size = 10){
     S.perm.all[((p-1)*m+1):(p*m)] <- S.perm[p,]
   }
   S.perm.all <- c(S.perm.all,max(S.perm.all)+1e-8, min(S.perm.all)-1e-8) # consider max(s.perm.all)+epsilon and min(s.perm.all)-epsilon since it may be the case that FDR at level fdr may only be achieved if the threshold is set to a value larger (smaller) than the highest (lowest) permutation value.
-  values.sorted <- sort(unique(S.perm.all))
+  values.sorted <- sort(unique(S.perm.all)) # values.sorted now includes all possible values, and in particular, the best critical values.
   if (window_size > (length(values.sorted)%/%2)){
     flog.debug(sprintf("get_critical_values: changing window_size from %f to %f", window_size, length(values.sorted)%/%2))
     return(get_critical_values(S, S.perm, fdr, window_size = length(values.sorted)%/%2))
@@ -126,8 +124,8 @@ get_critical_values <- function(S, S.perm, fdr, window_size = 10){
   for (p in 1:num_perms){
     S.perm.trimmed[[p]] <-S.perm[p,(S.perm[p,]<=max(left_values)) | (S.perm[p,]>=min(right_values))]
   }
-  fdr_array <- matrix(0,window_size,window_size)
-  num_hits <- matrix(0,window_size,window_size)
+  fdr_array <- matrix(0,window_size,window_size) # find the best combination of low and high critical values; consider only the window_size smallest values and window_size largest values in the unpermuted set of values.
+  num_hits <- matrix(0,window_size,window_size) # for storing the number of statistics crossing each given combination of low and high critical values.
   for (i in 1:window_size){
     for (j in 1:window_size){
       num_hits[i,j] <- sum((S.trimmed <= left_values[i]) | (S.trimmed >= right_values[j]))
@@ -141,10 +139,10 @@ get_critical_values <- function(S, S.perm, fdr, window_size = 10){
   }
   if (any(fdr_array <= fdr)){
     control_fdr <- which(fdr_array <= fdr)
-    best_position <- (1:(window_size**2))[control_fdr][order(-num_hits[control_fdr])[1]]
-    edge_positions <- c(seq(10,window_size**2,window_size),1:10) # these positions in the fdr_array matrix represent at least one value from c(max(left_values),min(right_values)), so we want to try increasing the window in case we can get more hits while controlling for fdr.
+    best_position <- (1:(window_size**2))[control_fdr][order(-num_hits[control_fdr])[1]] # the position of the values that yield the most associations while controlling for fdr at the desired level.
+    edge_positions <- c(seq(window_size,window_size**2,window_size), (window_size*(window_size-1)+1):(window_size**2)) # these positions in the fdr_array matrix represent at least one value from c(max(left_values),min(right_values)), so we want to try increasing the window for considering potential low/high critical values in case we can get more hits while controlling for fdr.
     if (is.element(best_position,edge_positions) && (2*window_size<=length(values.sorted)%/%2)){
-      return(get_critical_values(S, S.perm, fdr, window_size = min(2*window_size,length(values.sorted)%/%2)))
+      return(get_critical_values(S, S.perm, fdr, window_size = 2*window_size))
     }
     # return the best critical values
     return (c(left_values[(best_position-1)%%window_size+1],right_values[(best_position-1)%/%window_size+1]))
@@ -228,8 +226,14 @@ keris.fit_vars <- function(X, X_means_hat, W, W_squared, y, W_.inter.0, W_.inter
   k <- ncol(W)
 
   sigmas_squared_hat <- matrix(0, nrow=m, ncol=k)
-  sigmas_squared_hat.delta <- matrix(0, nrow=m, ncol=k*!(is.null(y)))
+  rownames(sigmas_squared_hat) <- colnames(X)
+  colnames(sigmas_squared_hat) <- colnames(W)
+  sigmas_squared_hat.delta <- matrix(0, nrow=m, ncol=k)
+  rownames(sigmas_squared_hat.delta) <- colnames(X)
+  colnames(sigmas_squared_hat.delta) <- colnames(W)
+  #sigmas_squared_hat.delta <- matrix(0, nrow=m, ncol=k*!(is.null(y)))
   tau_squared_hat <- matrix(0, nrow=m, ncol=1)
+  rownames(tau_squared_hat) <- colnames(X)
   if (learn_tau) tau_squared_hat <- tau_squared_hat + globals[["MIN_VAR"]]
 
   for (iter in 1:max_iters){
@@ -293,7 +297,11 @@ keris.fit_covars <- function(X, W, W_squared, covar_pairs.indices, y, W_.inter.0
   k <- ncol(W)
 
   sigmas_squared_hat.covars <- matrix(0,nrow(covar_pairs.indices),k)
+  rownames(sigmas_squared_hat.covars) <- rownames(covar_pairs.indices)
+  colnames(sigmas_squared_hat.covars) <- colnames(W)
   sigmas_squared_hat.covars.delta <- matrix(0,nrow(covar_pairs.indices),k*!is.null(y))
+  rownames(sigmas_squared_hat.covars.delta) <- rownames(covar_pairs.indices)
+  colnames(sigmas_squared_hat.covars.delta) <- colnames(W)
 
   for (iter in 1:max_iters){
     V_sqrt_diag <- calc_V_sqrt_diag(X, W_.inter.0, W_.inter.y, sigmas_squared_hat.covars, sigmas_squared_hat.covars.delta, tau_squared_hat = 0, squared_residuals = squared_residuals.covars, iter = iter, globals = globals)

@@ -21,7 +21,10 @@ calc_C1_W_interactions <- function(W,C1){
   k <- ncol(W)
   p1 <- ncol(C1)
   if (p1){
-    return( hadamard.prod(Reshape(Reshape(apply(W, 2, function(v) repmat(v,1,p1)), n*p1*k,1), n,p1*k), repmat(C1, 1, k)) )
+    mat <- hadamard.prod(Reshape(Reshape(apply(W, 2, function(v) repmat(v,1,p1)), n*p1*k,1), n,p1*k), repmat(C1, 1, k))
+    colnames(mat) <- apply(expand.grid(colnames(C1),colnames(W)), 1, paste, collapse=".")
+    rownames(mat) <- rownames(W)
+    return(mat)
   }else{
     return(matrix(0,n,0))
   }
